@@ -252,11 +252,11 @@ int redisContextConnectUnix(redisContext *c, const char *path, struct timeval *t
     return REDIS_OK;
 }
 
-int redisContextConnectTipc(redisContext *c, int type, int range_low, int range_high, struct timeval *timeout) {
+int redisContextConnectTipc(redisContext *c, int type, int range_lower, int range_upper, struct timeval *timeout) {
     int s;
     int blocking = (c->flags & REDIS_BLOCK);
     struct sockaddr_tipc sa;
-    (void)range_high;
+    (void)range_upper;
 
     if ((s = redisCreateSocket(c,AF_TIPC)) < 0)
         return REDIS_ERR;
@@ -268,7 +268,7 @@ int redisContextConnectTipc(redisContext *c, int type, int range_low, int range_
     sa.family = AF_TIPC;
     sa.addrtype = TIPC_ADDR_NAME;
     sa.addr.name.name.type = type;
-    sa.addr.name.name.instance = range_low;
+    sa.addr.name.name.instance = range_lower;
     sa.scope = TIPC_ZONE_SCOPE;
 
     if (connect(s, (struct sockaddr*)&sa, sizeof(sa)) == -1) {

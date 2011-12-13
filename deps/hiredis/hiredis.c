@@ -874,24 +874,24 @@ redisContext *redisConnectUnixNonBlock(const char *path) {
 /* Connect to a Redis instance using TIPC. On error the field error in the returned
  * context will be set to the return value of the error function.
  * When no set of reply functions is given, the default set will be used. */
-redisContext *redisConnectTipc(int type, int range_low, int range_high) {
+redisContext *redisConnectTipc(int type, int range_lower, int range_upper) {
     redisContext *c = redisContextInit();
     c->flags |= REDIS_BLOCK;
-    redisContextConnectTipc(c, type, range_low, range_high, NULL);
+    redisContextConnectTipc(c, type, range_lower, range_upper, NULL);
     return c;
 }
 
-redisContext *redisConnectTipcWithTimeout(int type, int range_low, int range_high, struct timeval tv) {
+redisContext *redisConnectTipcWithTimeout(int type, int range_lower, int range_upper, struct timeval tv) {
     redisContext *c = redisContextInit();
     c->flags |= REDIS_BLOCK;
-    redisContextConnectTipc(c, type, range_low, range_high, &tv);
+    redisContextConnectTipc(c, type, range_lower, range_upper, &tv);
     return c;
 }
 
-redisContext *redisConnectTipcNonBlock(int type, int range_low, int range_high) {
+redisContext *redisConnectTipcNonBlock(int type, int range_lower, int range_upper) {
     redisContext *c = redisContextInit();
     c->flags &= ~REDIS_BLOCK;
-    redisContextConnectTipc(c, type, range_low, range_high, NULL);
+    redisContextConnectTipc(c, type, range_lower, range_upper, NULL);
     return c;
 }
 
