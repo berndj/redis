@@ -52,6 +52,9 @@ static struct config {
     const char *hostip;
     int hostport;
     const char *hostsocket;
+    int tipc_type;
+    int tipc_instance_lower;
+    int tipc_instance_upper;
     int numclients;
     int liveclients;
     int requests;
@@ -238,17 +241,31 @@ static void writeHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
 
 static client createClient(const char *cmd, size_t len) {
     client c = zmalloc(sizeof(struct _client));
-    if (config.hostsocket == NULL) {
-        c->context = redisConnectNonBlock(config.hostip,config.hostport);
+
+    if (config.tipc_type != 0 ) {
+        c->context = redisConnectTipc(config.tipc_type,
+                                   config.tipc_instance_lower,
+                                   config.tipc_instance_upper);
     } else {
-        c->context = redisConnectUnixNonBlock(config.hostsocket);
+        if (config.hostsocket == NULL) {
+            c->context = redisConnectNonBlock(config.hostip,config.hostport);
+        } else {
+            c->context = redisConnectUnixNonBlock(config.hostsocket);
+        }
     }
     if (c->context->err) {
         fprintf(stderr,"Could not connect to Redis at ");
-        if (config.hostsocket == NULL)
-            fprintf(stderr,"%s:%d: %s\n",config.hostip,config.hostport,c->context->errstr);
-        else
-            fprintf(stderr,"%s: %s\n",config.hostsocket,c->context->errstr);
+        if (config.tipc_type != 0 ) {
+          fprintf(stderr,"tipc type=%d range=%d-%d error=%s\n",
+                  config.tipc_type,
+                  config.tipc_instance_lower,
+                  config.tipc_instance_upper, strerror(errno));
+        } else {
+            if (config.hostsocket == NULL)
+                fprintf(stderr,"%s:%d: %s\n",config.hostip,config.hostport,c->context->errstr);
+            else
+                fprintf(stderr,"%s: %s\n",config.hostsocket,c->context->errstr);
+        }
         exit(1);
     }
     c->obuf = sdsnewlen(cmd,len);
@@ -367,6 +384,18 @@ int parseOptions(int argc, const char **argv) {
         } else if (!strcmp(argv[i],"-s")) {
             if (lastarg) goto invalid;
             config.hostsocket = strdup(argv[++i]);
+        } else if (!strcmp(argv[i],"-t")) {
+            if (lastarg) goto invalid;
+            config.tipc_type = atoi(argv[++i]);
+        } else if (!strcmp(argv[i],"-tl")) {
+            if (lastarg) goto invalid;
+            config.tipc_instance_lower = atoi(argv[++i]);
+        } else if (!strcmp(argv[i],"-tu")) {
+            if (lastarg) goto invalid;
+            config.tipc_instance_upper = atoi(argv[++i]);
+            if (config.tipc_instance_upper < config.tipc_instance_lower) {
+                config.tipc_instance_upper = config.tipc_instance_lower;
+            }
         } else if (!strcmp(argv[i],"-d")) {
             if (lastarg) goto invalid;
             config.datasize = atoi(argv[++i]);
@@ -420,6 +449,9 @@ usage:
 " -h <hostname>      Server hostname (default 127.0.0.1)\n"
 " -p <port>          Server port (default 6379)\n"
 " -s <socket>        Server socket (overrides host and port)\n"
+" -t <type>          TIPC service type (overrides hostname, port and server socket\n"
+" -tl <lower>        TIPC service lower instance border\n"
+" -tu <upper>        TIPC service upper instance border\n"
 " -c <clients>       Number of parallel connections (default 50)\n"
 " -n <requests>      Total number of requests (default 10000)\n"
 " -d <size>          Data size of SET/GET value in bytes (default 2)\n"
