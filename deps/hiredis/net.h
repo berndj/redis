@@ -42,5 +42,6 @@
 int redisContextSetTimeout(redisContext *c, struct timeval tv);
 int redisContextConnectTcp(redisContext *c, const char *addr, int port, struct timeval *timeout);
 int redisContextConnectUnix(redisContext *c, const char *path, struct timeval *timeout);
+int redisContextConnectTipc(redisContext *c, int type, int range_low, int range_high, struct timeval *timeout);
 
 #endif

@@ -45,6 +45,7 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <linux/tipc.h>
 
 #include "net.h"
 #include "sds.h"
@@ -233,6 +234,43 @@ int redisContextConnectUnix(redisContext *c, const char *path, struct timeval *t
 
     sa.sun_family = AF_LOCAL;
     strncpy(sa.sun_path,path,sizeof(sa.sun_path)-1);
+    if (connect(s, (struct sockaddr*)&sa, sizeof(sa)) == -1) {
+        if (errno == EINPROGRESS && !blocking) {
+            /* This is ok. */
+        } else {
+            if (redisContextWaitReady(c,s,timeout) != REDIS_OK)
+                return REDIS_ERR;
+        }
+    }
+
+    /* Reset socket to be blocking after connect(2). */
+    if (blocking && redisSetBlocking(c,s,1) != REDIS_OK)
+        return REDIS_ERR;
+
+    c->fd = s;
+    c->flags |= REDIS_CONNECTED;
+    return REDIS_OK;
+}
+
+int redisContextConnectTipc(redisContext *c, int type, int range_low, int range_high, struct timeval *timeout) {
+    int s;
+    int blocking = (c->flags & REDIS_BLOCK);
+    struct sockaddr_tipc sa;
+    (void)range_high;
+
+    if ((s = redisCreateSocket(c,AF_TIPC)) < 0)
+        return REDIS_ERR;
+#if 0 /* TODO does not work with TIPC */
+    if (redisSetBlocking(c,s,0) != REDIS_OK)
+        return REDIS_ERR;
+#endif
+    memset(&sa, 0, sizeof(sa));
+    sa.family = AF_TIPC;
+    sa.addrtype = TIPC_ADDR_NAME;
+    sa.addr.name.name.type = type;
+    sa.addr.name.name.instance = range_low;
+    sa.scope = TIPC_ZONE_SCOPE;
+
     if (connect(s, (struct sockaddr*)&sa, sizeof(sa)) == -1) {
         if (errno == EINPROGRESS && !blocking) {
             /* This is ok. */
