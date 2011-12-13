@@ -367,7 +367,7 @@ int anetUnixServer(char *err, char *path, mode_t perm)
     return s;
 }
 
-int anetTipcServer(char *err, int type, int range_low, int range_high)
+int anetTipcServer(char *err, int type, int range_lower, int range_upper)
 {
     int s;
     struct sockaddr_tipc sa;
@@ -380,8 +380,8 @@ int anetTipcServer(char *err, int type, int range_low, int range_high)
     sa.family = AF_TIPC;
     sa.addrtype = TIPC_ADDR_NAMESEQ;
     sa.addr.nameseq.type = type;
-    sa.addr.nameseq.lower = range_low;
-    sa.addr.nameseq.upper = range_high;
+    sa.addr.nameseq.lower = range_lower;
+    sa.addr.nameseq.upper = range_upper;
     sa.scope = TIPC_ZONE_SCOPE;
 
     if (anetListen(err,s,(struct sockaddr*)&sa,sizeof(sa)) == ANET_ERR)

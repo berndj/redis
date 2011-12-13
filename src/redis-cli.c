@@ -56,8 +56,8 @@ static struct config {
     int hostport;
     char *hostsocket;
     int tipc_type;
-    int tipc_instance_low;
-    int tipc_instance_high;
+    int tipc_instance_lower;
+    int tipc_instance_upper;
     long repeat;
     long interval;
     int dbnum;
@@ -98,7 +98,7 @@ static void cliRefreshPrompt(void) {
     char conn[20];
 
     if (config.tipc_type != 0 ) {
-      snprintf(conn, sizeof(conn), "%d:%d", config.tipc_type, config.tipc_instance_low); 
+      snprintf(conn, sizeof(conn), "%d:%d", config.tipc_type, config.tipc_instance_lower);
     }
     else if (config.hostsocket != NULL) {
       snprintf(conn, sizeof(conn), "%s", config.hostsocket); 
@@ -312,8 +312,8 @@ static int cliConnect(int force) {
 
         if (config.tipc_type != 0 ) {
             context = redisConnectTipc(config.tipc_type,
-                                       config.tipc_instance_low,
-                                       config.tipc_instance_high);
+                                       config.tipc_instance_lower,
+                                       config.tipc_instance_upper);
         } else {
             if (config.hostsocket == NULL) {
                 context = redisConnect(config.hostip,config.hostport);
@@ -327,12 +327,12 @@ static int cliConnect(int force) {
             if (config.tipc_type != 0 ) {
               fprintf(stderr,"tipc type=%d range=%d-%d error=%s\n",
                       config.tipc_type,
-                      config.tipc_instance_low,
-                      config.tipc_instance_high, strerror(errno));
+                      config.tipc_instance_lower,
+                      config.tipc_instance_upper, strerror(errno));
             }
             else {
               if (config.hostsocket == NULL)
-                fprintf(stderr,"%s:%d: %s\n",config.hostip,config.hostport,context->errstr);
+                fprintf(stderr,"%s:%d: %s\n", config.hostip, config.hostport, context->errstr);
               else
                 fprintf(stderr,"%s: %s\n",config.hostsocket,context->errstr);
             }
@@ -616,6 +616,13 @@ static int parseOptions(int argc, char **argv) {
             config.hostsocket = argv[++i];
         } else if (!strcmp(argv[i],"-t") && !lastarg) {
             config.tipc_type = atoi(argv[++i]);
+        } else if (!strcmp(argv[i],"-tl") && !lastarg) {
+            config.tipc_instance_lower = atoi(argv[++i]);
+        } else if (!strcmp(argv[i],"-tu") && !lastarg) {
+            config.tipc_instance_upper = atoi(argv[++i]);
+            if (config.tipc_instance_upper < config.tipc_instance_lower) {
+                config.tipc_instance_upper = config.tipc_instance_lower;
+            }
         } else if (!strcmp(argv[i],"-r") && !lastarg) {
             config.repeat = strtoll(argv[++i],NULL,10);
         } else if (!strcmp(argv[i],"-i") && !lastarg) {
@@ -675,6 +682,8 @@ static void usage() {
 "  -p <port>        Server port (default: 6379)\n"
 "  -s <socket>      Server socket (overrides hostname and port)\n"
 "  -t <type>        TIPC service type (overrides hostname, port and server socket\n"
+"  -tl <lower>      TIPC service lower instance border\n"
+"  -tu <upper>      TIPC service upper instance border\n"
 "  -a <password>    Password to use when connecting to the server\n"
 "  -r <repeat>      Execute specified command N times\n"
 "  -i <interval>    When -r is used, waits <interval> seconds per command.\n"
@@ -900,8 +909,8 @@ int main(int argc, char **argv) {
     config.hostport = 6379;
     config.hostsocket = NULL;
     config.tipc_type = 0;
-    config.tipc_instance_low = 0;
-    config.tipc_instance_high = 0;
+    config.tipc_instance_lower = 0;
+    config.tipc_instance_upper = 0;
     config.repeat = 1;
     config.interval = 0;
     config.dbnum = 0;
