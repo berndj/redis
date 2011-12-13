@@ -41,14 +41,18 @@
 
 int anetTcpConnect(char *err, char *addr, int port);
 int anetTcpNonBlockConnect(char *err, char *addr, int port);
+int anetTipcConnect(char *err, int type, int range_low, int range_high);
+int anetTipcNonBlockConnect(char *err, int type, int range_low, int range_high);
 int anetUnixConnect(char *err, char *path);
 int anetUnixNonBlockConnect(char *err, char *path);
 int anetRead(int fd, char *buf, int count);
 int anetResolve(char *err, char *host, char *ipbuf);
 int anetTcpServer(char *err, int port, char *bindaddr);
 int anetUnixServer(char *err, char *path, mode_t perm);
+int anetTipcServer(char *err, int type, int range_low, int range_high);
 int anetTcpAccept(char *err, int serversock, char *ip, int *port);
 int anetUnixAccept(char *err, int serversock);
+int anetTipcAccept(char *err, int serversock);
 int anetWrite(int fd, char *buf, int count);
 int anetNonBlock(char *err, int fd);
 int anetTcpNoDelay(char *err, int fd);

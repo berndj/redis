@@ -65,6 +65,12 @@ void loadServerConfigFromString(char *config) {
             if (errno || server.unixsocketperm > 0777) {
                 err = "Invalid socket file permissions"; goto loaderr;
             }
+        } else if (!strcasecmp(argv[0],"tipc.type") && argc == 2) {
+            server.tipc_type = atoi(argv[1]);
+        } else if (!strcasecmp(argv[0],"tipc.instance.low") && argc == 2) {
+            server.tipc_instance_lower = atoi(argv[1]);
+        } else if (!strcasecmp(argv[0],"tipc.instance.high") && argc == 2) {
+            server.tipc_instance_upper = atoi(argv[1]);
         } else if (!strcasecmp(argv[0],"save") && argc == 3) {
             int seconds = atoi(argv[1]);
             int changes = atoi(argv[2]);

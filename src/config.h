@@ -19,6 +19,11 @@
 #define HAVE_PROCFS 1
 #endif
 
+/* Test for TIPC networking */
+#ifdef __linux__
+#define HAVE_TIPC 1
+#endif
+
 /* Test for task_info() */
 #if defined(__APPLE__)
 #define HAVE_TASKINFO 1

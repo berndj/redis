@@ -39,6 +39,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/socket.h>
 #include <assert.h>
 
 #include "hiredis.h"
@@ -54,6 +55,9 @@ static struct config {
     char *hostip;
     int hostport;
     char *hostsocket;
+    int tipc_type;
+    int tipc_instance_low;
+    int tipc_instance_high;
     long repeat;
     long interval;
     int dbnum;
@@ -91,12 +95,23 @@ static long long mstime(void) {
 }
 
 static void cliRefreshPrompt(void) {
+    char conn[20];
+
+    if (config.tipc_type != 0 ) {
+      snprintf(conn, sizeof(conn), "%d:%d", config.tipc_type, config.tipc_instance_low); 
+    }
+    else if (config.hostsocket != NULL) {
+      snprintf(conn, sizeof(conn), "%s", config.hostsocket); 
+    }
+    else {
+      snprintf(conn, sizeof(conn), "%s:%d", config.hostip, config.hostport); 
+    }
     if (config.dbnum == 0)
-        snprintf(config.prompt,sizeof(config.prompt),"redis %s:%d> ",
-            config.hostip, config.hostport);
+        snprintf(config.prompt,sizeof(config.prompt),"redis %s> ",
+            conn);
     else
-        snprintf(config.prompt,sizeof(config.prompt),"redis %s:%d[%d]> ",
-            config.hostip, config.hostport, config.dbnum);
+        snprintf(config.prompt,sizeof(config.prompt),"redis %s[%d]> ",
+            conn, config.dbnum);
 }
 
 /*------------------------------------------------------------------------------
@@ -295,18 +310,32 @@ static int cliConnect(int force) {
         if (context != NULL)
             redisFree(context);
 
-        if (config.hostsocket == NULL) {
-            context = redisConnect(config.hostip,config.hostport);
+        if (config.tipc_type != 0 ) {
+            context = redisConnectTipc(config.tipc_type,
+                                       config.tipc_instance_low,
+                                       config.tipc_instance_high);
         } else {
-            context = redisConnectUnix(config.hostsocket);
+            if (config.hostsocket == NULL) {
+                context = redisConnect(config.hostip,config.hostport);
+            } else {
+                context = redisConnectUnix(config.hostsocket);
+            }
         }
 
         if (context->err) {
             fprintf(stderr,"Could not connect to Redis at ");
-            if (config.hostsocket == NULL)
+            if (config.tipc_type != 0 ) {
+              fprintf(stderr,"tipc type=%d range=%d-%d error=%s\n",
+                      config.tipc_type,
+                      config.tipc_instance_low,
+                      config.tipc_instance_high, strerror(errno));
+            }
+            else {
+              if (config.hostsocket == NULL)
                 fprintf(stderr,"%s:%d: %s\n",config.hostip,config.hostport,context->errstr);
-            else
+              else
                 fprintf(stderr,"%s: %s\n",config.hostsocket,context->errstr);
+            }
             redisFree(context);
             context = NULL;
             return REDIS_ERR;
@@ -585,6 +614,8 @@ static int parseOptions(int argc, char **argv) {
             config.hostport = atoi(argv[++i]);
         } else if (!strcmp(argv[i],"-s") && !lastarg) {
             config.hostsocket = argv[++i];
+        } else if (!strcmp(argv[i],"-t") && !lastarg) {
+            config.tipc_type = atoi(argv[++i]);
         } else if (!strcmp(argv[i],"-r") && !lastarg) {
             config.repeat = strtoll(argv[++i],NULL,10);
         } else if (!strcmp(argv[i],"-i") && !lastarg) {
@@ -643,6 +674,7 @@ static void usage() {
 "  -h <hostname>    Server hostname (default: 127.0.0.1)\n"
 "  -p <port>        Server port (default: 6379)\n"
 "  -s <socket>      Server socket (overrides hostname and port)\n"
+"  -t <type>        TIPC service type (overrides hostname, port and server socket\n"
 "  -a <password>    Password to use when connecting to the server\n"
 "  -r <repeat>      Execute specified command N times\n"
 "  -i <interval>    When -r is used, waits <interval> seconds per command.\n"
@@ -720,6 +752,9 @@ static void repl() {
                 if (strcasecmp(argv[0],"quit") == 0 ||
                     strcasecmp(argv[0],"exit") == 0)
                 {
+                    if (context && context->fd > 0) {
+                        shutdown(context->fd, SHUT_RDWR);
+                    }
                     exit(0);
                 } else if (argc == 3 && !strcasecmp(argv[0],"connect")) {
                     sdsfree(config.hostip);
@@ -864,6 +899,9 @@ int main(int argc, char **argv) {
     config.hostip = sdsnew("127.0.0.1");
     config.hostport = 6379;
     config.hostsocket = NULL;
+    config.tipc_type = 0;
+    config.tipc_instance_low = 0;
+    config.tipc_instance_high = 0;
     config.repeat = 1;
     config.interval = 0;
     config.dbnum = 0;
