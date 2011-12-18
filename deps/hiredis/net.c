@@ -45,10 +45,13 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include <linux/tipc.h>
 
 #include "net.h"
 #include "sds.h"
+
+#ifdef HAVE_TIPC
+#include <linux/tipc.h>
+#endif
 
 /* Forward declaration */
 void __redisSetError(redisContext *c, int type, sds err);
@@ -252,6 +255,8 @@ int redisContextConnectUnix(redisContext *c, const char *path, struct timeval *t
     return REDIS_OK;
 }
 
+#ifdef HAVE_TIPC
+
 int redisContextConnectTipc(redisContext *c, int type, int range_lower, int range_upper, struct timeval *timeout) {
     int s;
     int blocking = (c->flags & REDIS_BLOCK);
@@ -288,3 +293,5 @@ int redisContextConnectTipc(redisContext *c, int type, int range_lower, int rang
     c->flags |= REDIS_CONNECTED;
     return REDIS_OK;
 }
+
+#endif /* HAVE_TIPC */

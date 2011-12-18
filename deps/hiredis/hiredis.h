@@ -149,9 +149,11 @@ redisContext *redisConnectNonBlock(const char *ip, int port);
 redisContext *redisConnectUnix(const char *path);
 redisContext *redisConnectUnixWithTimeout(const char *path, struct timeval tv);
 redisContext *redisConnectUnixNonBlock(const char *path);
+#ifdef HAVE_TIPC
 redisContext *redisConnectTipc(int type, int range_lower, int range_upper);
 redisContext *redisConnectTipcWithTimeout(int type, int range_lower, int range_upper, struct timeval tv);
 redisContext *redisConnectTipcNonBlock(int type, int range_lower, int range_upper);
+#endif
 int redisSetTimeout(redisContext *c, struct timeval tv);
 int redisSetReplyObjectFunctions(redisContext *c, redisReplyObjectFunctions *fn);
 void redisFree(redisContext *c);
