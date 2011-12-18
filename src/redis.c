@@ -860,7 +860,7 @@ void initServerConfig() {
     server.bindaddr = NULL;
     server.unixsocket = NULL;
     server.unixsocketperm = 0;
-    server.tipc_type = 0;	  
+    server.tipc_type = 0;
     server.tipc_instance_lower = 0; 
     server.tipc_instance_upper = 0;
     server.ipfd = -1;
@@ -995,14 +995,16 @@ void initServer() {
             exit(1);
         }
     }
+#ifdef HAVE_TIPC
     if (server.tipc_type != 0) {
       server.tipcfd = anetTipcServer(server.neterr,server.tipc_type, server.tipc_instance_lower, server.tipc_instance_upper);
       if (server.tipcfd == ANET_ERR) {
-	  redisLog(REDIS_WARNING, "Opening tipc type %d: %s",
-		 server.tipc_type, server.neterr);
-	exit(1);
+          redisLog(REDIS_WARNING, "Opening tipc type %d: %s",
+              server.tipc_type, server.neterr);
+          exit(1);
       }
     }
+#endif /* HAVE_TIPC */
     if (server.ipfd < 0 && server.sofd < 0 && server.tipcfd < 0) {
         redisLog(REDIS_WARNING, "Configured to not listen anywhere, exiting.");
         exit(1);
@@ -1041,8 +1043,10 @@ void initServer() {
         acceptTcpHandler,NULL) == AE_ERR) oom("creating file event");
     if (server.sofd > 0 && aeCreateFileEvent(server.el,server.sofd,AE_READABLE,
         acceptUnixHandler,NULL) == AE_ERR) oom("creating file event");
+#ifdef HAVE_TIPC
     if (server.tipcfd > 0 && aeCreateFileEvent(server.el,server.tipcfd,AE_READABLE,
         acceptTipcHandler,NULL) == AE_ERR) oom("creating file event");
+#endif /* HAVE_TIPC */
 
     if (server.appendonly) {
         server.appendfd = open(server.appendfilename,O_WRONLY|O_APPEND|O_CREAT,0644);

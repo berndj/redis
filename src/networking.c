@@ -457,6 +457,7 @@ void acceptUnixHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
     acceptCommonHandler(cfd);
 }
 
+#ifdef HAVE_TIPC
 void acceptTipcHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
     int cfd;
     REDIS_NOTUSED(el);
@@ -471,6 +472,7 @@ void acceptTipcHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
     redisLog(REDIS_VERBOSE,"Accepted connection to tipc type %d", server.tipc_type);
     acceptCommonHandler(cfd);
 }
+#endif /* HAVE_TIPC */
 
 static void freeClientArgv(redisClient *c) {
     int j;

@@ -44,7 +44,10 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
+
+#ifdef HAVE_TIPC
 #include <linux/tipc.h>
+#endif
 
 #include "anet.h"
 
@@ -227,60 +230,6 @@ int anetUnixNonBlockConnect(char *err, char *path)
     return anetUnixGenericConnect(err,path,ANET_CONNECT_NONBLOCK);
 }
 
-#define SERVER_TYPE  9999
-#define SERVER_INST  17
-static int anetTipcGenericConnect(char *err, int type, int range_low, int range_high, int flags)
-{
-    int s;
-    struct sockaddr_tipc sa;
-    (void)range_high;
-
-    if ((s = anetCreateSocket(err, AF_TIPC)) == ANET_ERR)
-        return ANET_ERR;
-
-    memset(&sa, 0, sizeof(sa));
-
-    sa.family = AF_TIPC;
-#if 0
-    sa.addrtype = TIPC_ADDR_NAMESEQ;
-    sa.addr.nameseq.type = type;
-    sa.addr.nameseq.lower = range_low;
-    sa.addr.nameseq.upper = range_high;
-#else
-    sa.addrtype = TIPC_ADDR_NAME;
-    sa.addr.name.name.type = type;
-    sa.addr.name.name.instance = range_low;
-#endif
-    sa.scope = TIPC_ZONE_SCOPE;
-
-    if (flags & ANET_CONNECT_NONBLOCK) {
-        if (anetNonBlock(err,s) != ANET_OK)
-            return ANET_ERR;
-    }
-    if (connect(s, (struct sockaddr*)&sa, sizeof(sa)) == -1) {
-        if (errno == EINPROGRESS &&
-            flags & ANET_CONNECT_NONBLOCK)
-            return s;
-
-        anetSetError(err, "connect: %s", strerror(errno));
-        shutdown(s, SHUT_RDWR);
-        close(s);
-        return ANET_ERR;
-    }
-    return s;
-}
-
-int anetTipcConnect(char *err, int type, int range_low, int range_high)
-{
-    return anetTipcGenericConnect(err, type, range_low, range_high, ANET_CONNECT_NONE);
-}
-
-int anetTipcNonBlockConnect(char *err, int type, int range_low, int range_high)
-{
-    return anetTipcGenericConnect(err, type, range_low, range_high, ANET_CONNECT_NONBLOCK);
-}
-
-
 /* Like read(2) but make sure 'count' is read before to return
  * (unless error or EOF condition is encountered) */
 int anetRead(int fd, char *buf, int count)
@@ -367,30 +316,6 @@ int anetUnixServer(char *err, char *path, mode_t perm)
     return s;
 }
 
-int anetTipcServer(char *err, int type, int range_lower, int range_upper)
-{
-    int s;
-    struct sockaddr_tipc sa;
-
-    if ((s = anetCreateSocket(err,AF_TIPC)) == ANET_ERR)
-        return ANET_ERR;
-
-    memset(&sa,0,sizeof(sa));
-
-    sa.family = AF_TIPC;
-    sa.addrtype = TIPC_ADDR_NAMESEQ;
-    sa.addr.nameseq.type = type;
-    sa.addr.nameseq.lower = range_lower;
-    sa.addr.nameseq.upper = range_upper;
-    sa.scope = TIPC_ZONE_SCOPE;
-
-    if (anetListen(err,s,(struct sockaddr*)&sa,sizeof(sa)) == ANET_ERR)
-        return ANET_ERR;
-
-    return s;
-}
-
-
 static int anetGenericAccept(char *err, int s, struct sockaddr *sa, socklen_t *len) {
     int fd;
     while(1) {
@@ -430,6 +355,94 @@ int anetUnixAccept(char *err, int s) {
     return fd;
 }
 
+int anetPeerToString(int fd, char *ip, int *port) {
+    struct sockaddr_in sa;
+    socklen_t salen = sizeof(sa);
+
+    if (getpeername(fd,(struct sockaddr*)&sa,&salen) == -1) return -1;
+    if (ip) strcpy(ip,inet_ntoa(sa.sin_addr));
+    if (port) *port = ntohs(sa.sin_port);
+    return 0;
+}
+
+#ifdef HAVE_TIPC
+
+#define SERVER_TYPE  9999
+#define SERVER_INST  17
+static int anetTipcGenericConnect(char *err, int type, int range_low, int range_high, int flags)
+{
+    int s;
+    struct sockaddr_tipc sa;
+    (void)range_high;
+
+    if ((s = anetCreateSocket(err, AF_TIPC)) == ANET_ERR)
+        return ANET_ERR;
+
+    memset(&sa, 0, sizeof(sa));
+
+    sa.family = AF_TIPC;
+#if 0
+    sa.addrtype = TIPC_ADDR_NAMESEQ;
+    sa.addr.nameseq.type = type;
+    sa.addr.nameseq.lower = range_low;
+    sa.addr.nameseq.upper = range_high;
+#else
+    sa.addrtype = TIPC_ADDR_NAME;
+    sa.addr.name.name.type = type;
+    sa.addr.name.name.instance = range_low;
+#endif
+    sa.scope = TIPC_ZONE_SCOPE;
+
+    if (flags & ANET_CONNECT_NONBLOCK) {
+        if (anetNonBlock(err,s) != ANET_OK)
+            return ANET_ERR;
+    }
+    if (connect(s, (struct sockaddr*)&sa, sizeof(sa)) == -1) {
+        if (errno == EINPROGRESS &&
+            flags & ANET_CONNECT_NONBLOCK)
+            return s;
+
+        anetSetError(err, "connect: %s", strerror(errno));
+        shutdown(s, SHUT_RDWR);
+        close(s);
+        return ANET_ERR;
+    }
+    return s;
+}
+
+int anetTipcConnect(char *err, int type, int range_low, int range_high)
+{
+    return anetTipcGenericConnect(err, type, range_low, range_high, ANET_CONNECT_NONE);
+}
+
+int anetTipcNonBlockConnect(char *err, int type, int range_low, int range_high)
+{
+    return anetTipcGenericConnect(err, type, range_low, range_high, ANET_CONNECT_NONBLOCK);
+}
+
+int anetTipcServer(char *err, int type, int range_lower, int range_upper)
+{
+    int s;
+    struct sockaddr_tipc sa;
+
+    if ((s = anetCreateSocket(err,AF_TIPC)) == ANET_ERR)
+        return ANET_ERR;
+
+    memset(&sa,0,sizeof(sa));
+
+    sa.family = AF_TIPC;
+    sa.addrtype = TIPC_ADDR_NAMESEQ;
+    sa.addr.nameseq.type = type;
+    sa.addr.nameseq.lower = range_lower;
+    sa.addr.nameseq.upper = range_upper;
+    sa.scope = TIPC_ZONE_SCOPE;
+
+    if (anetListen(err,s,(struct sockaddr*)&sa,sizeof(sa)) == ANET_ERR)
+        return ANET_ERR;
+
+    return s;
+}
+
 int anetTipcAccept(char *err, int s) {
     int fd;
     struct sockaddr_tipc sa;
@@ -440,12 +453,5 @@ int anetTipcAccept(char *err, int s) {
     return fd;
 }
 
-int anetPeerToString(int fd, char *ip, int *port) {
-    struct sockaddr_in sa;
-    socklen_t salen = sizeof(sa);
+#endif /* HAVE_TIPC */
 
-    if (getpeername(fd,(struct sockaddr*)&sa,&salen) == -1) return -1;
-    if (ip) strcpy(ip,inet_ntoa(sa.sin_addr));
-    if (port) *port = ntohs(sa.sin_port);
-    return 0;
-}

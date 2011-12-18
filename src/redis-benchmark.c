@@ -241,15 +241,20 @@ static void writeHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
 
 static client createClient(const char *cmd, size_t len) {
     client c = zmalloc(sizeof(struct _client));
-
+    c->context = NULL;
+#ifdef HAVE_TIPC
     if (config.tipc_type != 0 ) {
         c->context = redisConnectTipc(config.tipc_type,
                                    config.tipc_instance_lower,
                                    config.tipc_instance_upper);
-    } else {
+    }
+#endif
+    if (c->context == NULL) {
         if (config.hostsocket == NULL) {
+            /* TCP */
             c->context = redisConnectNonBlock(config.hostip,config.hostport);
         } else {
+            /* Unix domain sockets */
             c->context = redisConnectUnixNonBlock(config.hostsocket);
         }
     }
@@ -384,6 +389,7 @@ int parseOptions(int argc, const char **argv) {
         } else if (!strcmp(argv[i],"-s")) {
             if (lastarg) goto invalid;
             config.hostsocket = strdup(argv[++i]);
+#ifdef HAVE_TIPC
         } else if (!strcmp(argv[i],"-t")) {
             if (lastarg) goto invalid;
             config.tipc_type = atoi(argv[++i]);
@@ -396,6 +402,7 @@ int parseOptions(int argc, const char **argv) {
             if (config.tipc_instance_upper < config.tipc_instance_lower) {
                 config.tipc_instance_upper = config.tipc_instance_lower;
             }
+#endif /* HAVE_TIPC */
         } else if (!strcmp(argv[i],"-d")) {
             if (lastarg) goto invalid;
             config.datasize = atoi(argv[++i]);
@@ -449,9 +456,11 @@ usage:
 " -h <hostname>      Server hostname (default 127.0.0.1)\n"
 " -p <port>          Server port (default 6379)\n"
 " -s <socket>        Server socket (overrides host and port)\n"
+#ifdef HAVE_TIPC
 " -t <type>          TIPC service type (overrides hostname, port and server socket\n"
 " -tl <lower>        TIPC service lower instance border\n"
 " -tu <upper>        TIPC service upper instance border\n"
+#endif /* HAVE_TIPC */
 " -c <clients>       Number of parallel connections (default 50)\n"
 " -n <requests>      Total number of requests (default 10000)\n"
 " -d <size>          Data size of SET/GET value in bytes (default 2)\n"

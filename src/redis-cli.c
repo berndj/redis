@@ -310,11 +310,15 @@ static int cliConnect(int force) {
         if (context != NULL)
             redisFree(context);
 
+        context = NULL;
+#ifdef HAVE_TIPC
         if (config.tipc_type != 0 ) {
             context = redisConnectTipc(config.tipc_type,
                                        config.tipc_instance_lower,
                                        config.tipc_instance_upper);
-        } else {
+        }
+#endif
+        if (context == NULL) {
             if (config.hostsocket == NULL) {
                 context = redisConnect(config.hostip,config.hostport);
             } else {
@@ -614,6 +618,7 @@ static int parseOptions(int argc, char **argv) {
             config.hostport = atoi(argv[++i]);
         } else if (!strcmp(argv[i],"-s") && !lastarg) {
             config.hostsocket = argv[++i];
+#ifdef HAVE_TIPC
         } else if (!strcmp(argv[i],"-t") && !lastarg) {
             config.tipc_type = atoi(argv[++i]);
         } else if (!strcmp(argv[i],"-tl") && !lastarg) {
@@ -623,6 +628,7 @@ static int parseOptions(int argc, char **argv) {
             if (config.tipc_instance_upper < config.tipc_instance_lower) {
                 config.tipc_instance_upper = config.tipc_instance_lower;
             }
+#endif /* HAVE_TIPC */
         } else if (!strcmp(argv[i],"-r") && !lastarg) {
             config.repeat = strtoll(argv[++i],NULL,10);
         } else if (!strcmp(argv[i],"-i") && !lastarg) {
@@ -681,9 +687,11 @@ static void usage() {
 "  -h <hostname>    Server hostname (default: 127.0.0.1)\n"
 "  -p <port>        Server port (default: 6379)\n"
 "  -s <socket>      Server socket (overrides hostname and port)\n"
-"  -t <type>        TIPC service type (overrides hostname, port and server socket\n"
-"  -tl <lower>      TIPC service lower instance border\n"
-"  -tu <upper>      TIPC service upper instance border\n"
+#ifdef HAVE_TIPC
+" -t <type>          TIPC service type (overrides hostname, port and server socket\n"
+" -tl <lower>        TIPC service lower instance border\n"
+" -tu <upper>        TIPC service upper instance border\n"
+#endif /* HAVE_TIPC */
 "  -a <password>    Password to use when connecting to the server\n"
 "  -r <repeat>      Execute specified command N times\n"
 "  -i <interval>    When -r is used, waits <interval> seconds per command.\n"
