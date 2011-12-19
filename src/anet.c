@@ -29,6 +29,7 @@
  */
 
 #include "fmacros.h"
+#include "config.h"
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -44,6 +45,7 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
+
 
 #ifdef HAVE_TIPC
 #include <linux/tipc.h>
